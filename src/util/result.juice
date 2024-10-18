@@ -1,0 +1,4 @@
+export type result(t) := {
+	ok(value: t)
+	error(message: string)
+}

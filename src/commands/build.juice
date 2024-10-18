@@ -1,0 +1,5 @@
+import .io
+
+export fn build(args) {
+	io.debug(args)
+}

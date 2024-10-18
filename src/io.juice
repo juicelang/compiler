@@ -1,0 +1,42 @@
+export type stdin := {}
+export type stdout := {}
+export type stderr := {}
+
+impl stdin {
+
+}
+
+impl stdout {
+	static fn write(value: string) {
+		js!(value) {
+			process.stdout.write(value)
+		}
+	}
+
+	static fn write_line(value: string) {
+		stdout.write(value + "\n")
+	}
+}
+
+impl stderr {
+	static fn write(value: string) {
+		js!(value) {
+			process.stderr.write(value)
+		}
+	}
+
+	static fn write_line(value: string) {
+		stderr.write(value + "\n")
+	}
+}
+
+export fn debug(value: a) {
+	js!(value) {
+		console.log(value)
+	}
+}
+
+export fn fatal(value: a) {
+	stderr.write_line(value)
+	process.exit(1)
+}

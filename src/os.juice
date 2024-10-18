@@ -1,0 +1,5 @@
+export fn get_args() -> list(string) {
+	args := js! { return process.argv }
+
+	args.slice(2)
+}

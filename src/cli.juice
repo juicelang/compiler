@@ -1,0 +1,181 @@
+import .io
+import .util.option (option)
+
+export type flag(t) := {
+	name: string
+	short: string
+	long: string
+	description: string
+	value: t
+}
+
+export type command := {
+	name: string
+	description: string
+	flags: list(flag)
+	action: function
+}
+
+export type cli := {
+	name: string
+	description: string
+	flags: list(flag)
+	commands: list(command)
+}
+
+impl cli {
+	static fn new(config) -> cli {
+		cli(name: config.name, description: config.description, flags: config.flags, commands: config.commands)
+	}
+
+	/// Parse the command line arguments and execute
+	/// the appropriate command.
+	/// We handle the following argument formats:
+	/// - positional
+	/// - --flag
+	/// - -f
+	/// - --flag value
+	/// - -f value
+	/// - --flag=value
+	/// - -f=value
+	fn run(self, args: list(string)) {
+		options := {}
+		positionals := []
+		help := false
+
+		i := 0
+		for arg of args {
+			if i >= args.length {
+				break
+			}
+
+			value := args.${i}
+
+			if value == "-h" || value == "--help" {
+				help = true
+			} else if value.starts_with("-") {
+				name := value.slice(1)
+
+				flag := self.find_flag(name, if positionals.length > 0 { option::some(positionals.${0}) } else { option::none() })
+
+				if flag.is_some() {
+					unwrapped_flag := flag.unwrap()
+
+					match unwrapped_flag.value {
+						string -> {
+							if i + 1 < args.length {
+								options.${unwrapped_flag.name} = args.${i + 1}
+
+								i = i + 1
+							} else {
+								io.fatal("Flag " + name + " requires a value")
+							}
+						}
+						number -> {
+							if i + 1 < args.length {
+								options.${unwrapped_flag.name} = number(args.${i + 1})
+
+								i = i + 1
+							} else {
+								io.fatal("Flag " + name + " requires a value")
+							}
+						}
+						bool -> {
+							options.${unwrapped_flag.name} = true
+						}
+					}
+				} else {
+					io.fatal("Unknown flag: " + name)
+				}
+			} else {
+				positionals.push(value)
+			}
+
+			i = i + 1
+		}
+
+		for command of self.commands {
+			if command.name == positionals.${0} {
+				if help {
+					self.show_help(option::some(command))
+				} else {
+					command.action({
+						options = options
+						positionals = positionals.slice(1)
+					})
+				}
+
+				return
+			}
+		}
+
+		self.show_help(option::none())
+	}
+
+	fn find_flag(self, name: string, subcommand: optional(string)) {
+		if subcommand.is_some() {
+			unwrapped_subcommand := subcommand.unwrap()
+
+			for command of self.commands {
+				if command.name == unwrapped_subcommand {
+					for flag of command.flags {
+						if flag.name == name || flag.short == name {
+							return option::some(flag)
+						}
+					}
+
+					break
+				}
+			}
+		}
+
+		for flag of self.flags {
+			if flag.name == name || flag.short == name {
+				return option::some(flag)
+			}
+		}
+
+		return option::none()
+	}
+
+	fn show_help(self, command: option(command)) {
+		match command {
+			option::some(subcommand) -> {
+				io.stdout.write_line("Usage: ${self.name} ${subcommand.name} [flags]\n")
+				io.stdout.write_line("${subcommand.description}")
+				io.stdout.write_line("")
+				if subcommand.flags.length > 0 {
+					io.stdout.write_line("Flags:")
+					for flag of subcommand.flags {
+						line := "  -${flag.name}, -${flag.short}"
+
+						line = line.pad_end(38, " ")
+
+						io.stdout.write_line(line + flag.description)
+					}
+				}
+			}
+			option::none -> {
+				io.stdout.write_line("Usage: ${self.name} [command] [flags]\n")
+				io.stdout.write_line("${self.description}\n")
+
+				io.stdout.write_line("Commands:")
+
+				for command of self.commands {
+					line := "  ${command.name}"
+					line = line.pad_end(38, " ")
+					io.stdout.write_line(line + command.description)
+				}
+
+				io.stdout.write_line("\nFlags:")
+
+				for flag of self.flags {
+					line := "  -${flag.name}, -${flag.short}"
+					line = line.pad_end(38, " ")
+					io.stdout.write_line(line + flag.description)
+				}
+
+			}
+		}
+	}
+}

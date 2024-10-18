@@ -1,0 +1,19 @@
+export type option(t) := {
+	some(value: t)
+	none()
+}
+
+impl option {
+	fn is_some(self) -> bool {
+		match self {
+			option::some -> { true }
+			option::none -> { false }
+		}
+	}
+}
+
+impl option::some(t) for option.some {
+	fn unwrap(self) -> t {
+		self.value
+	}
+}
