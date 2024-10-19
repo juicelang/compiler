@@ -12,7 +12,7 @@ impl option {
 	}
 }
 
-impl option::some(t) for option.some {
+impl option::some(t) {
 	fn unwrap(self) -> t {
 		self.value
 	}
