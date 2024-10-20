@@ -1,28 +1,36 @@
 import .os
-import .cli (cli)
-import .commands.build (build)
+import .cli (cli, command, flag)
+import .commands.build
+import .commands.run
+
 
 fn main() {
-	app := cli.new({
-		name = "juice"
-		description = "A delightful programming language"
-		flags = [
-			{
-				name = "verbose"
-				short = "v"
-				description = "Enable verbose mode"
-				value = bool
-			}
-		]
-		commands = [
-			{
-				name = "build"
-				description = "Build a Juice program"
-				action = build
-				flags = [ ]
-			}
-		]
-	})
+	app := cli(
+		name: "juice",
+		description: "A delightful programming language",
+		flags: [
+			flag(
+				name: "verbose",
+				short: "v",
+				description: "Enable verbose mode",
+				value: bool,
+			)
+		],
+		commands: [
+			command(
+				name: "run",
+				description: "Run a Juice program",
+				flags: [ ],
+				action: run.command,
+			),
+			command(
+				name: "build",
+				description: "Build a Juice program",
+				flags: [ ],
+				action: build.command,
+			),
+		],
+	)
 
 	app.run(os.get_args())
 }

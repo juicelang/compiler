@@ -4,7 +4,6 @@ import .util.option (option)
 export type flag(t) := {
 	name: string
 	short: string
-	long: string
 	description: string
 	value: t
 }
@@ -36,8 +35,6 @@ impl cli {
 	/// - -f
 	/// - --flag value
 	/// - -f value
-	/// - --flag=value
-	/// - -f=value
 	fn run(self, args: list(string)) {
 		options := {}
 		positionals := []
@@ -141,19 +138,36 @@ impl cli {
 	fn show_help(self, command: option(command)) {
 		match command {
 			option::some(subcommand) -> {
-				io.stdout.write_line("Usage: ${self.name} ${subcommand.name} [flags]\n")
-				io.stdout.write_line("${subcommand.description}")
-				io.stdout.write_line("")
+				flags_info := "
+				|   ${"-h, --help".pad_end(38, " ")}Show help
+				"
+
 				if subcommand.flags.length > 0 {
-					io.stdout.write_line("Flags:")
 					for flag of subcommand.flags {
 						line := "  -${flag.name}, -${flag.short}"
 
 						line = line.pad_end(38, " ")
 
-						io.stdout.write_line(line + flag.description)
+						flags_info = "
+						| ${flags_info}
+						| ${line}${flag.description}
+						"
 					}
 				}
+
+				io.stdout.write_line("
+				|
+				| ${subcommand.description}
+				|
+				| USAGE
+				|
+				|   ${self.name} ${subcommand.name} [flags]
+				|
+				| OPTIONS
+				|
+				| ${flags_info}
+				|
+				")
 			}
 			option::none -> {
 				commands_info := ""
@@ -167,8 +181,9 @@ impl cli {
 					"
 				}
 
-
-				flags_info := ""
+				flags_info := "
+				|   ${"-h, --help".pad_end(38, " ")}Show help
+				"
 
 				for flag of self.flags {
 					line := "  -${flag.name}, -${flag.short}"
@@ -182,14 +197,17 @@ impl cli {
 
 				io.stdout.write_line("
 				|
-				| Usage: ${self.name} [command] [flags]
-				|
 				| ${self.description}
 				|
-				| Commands:
+				| USAGE
+				|
+				|   ${self.name} [command] [flags]
+				|
+				| COMMANDS
 				| ${commands_info}
 				|
-				| Flags:
+				| FLAGS
+				|
 				| ${flags_info}
 				|
 				")
