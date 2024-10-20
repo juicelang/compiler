@@ -156,25 +156,43 @@ impl cli {
 				}
 			}
 			option::none -> {
-				io.stdout.write_line("Usage: ${self.name} [command] [flags]\n")
-				io.stdout.write_line("${self.description}\n")
-
-				io.stdout.write_line("Commands:")
+				commands_info := ""
 
 				for command of self.commands {
 					line := "  ${command.name}"
 					line = line.pad_end(38, " ")
-					io.stdout.write_line(line + command.description)
+					commands_info = "
+					| ${commands_info}
+					| ${line}${command.description}
+					"
 				}
 
-				io.stdout.write_line("\nFlags:")
+
+				flags_info := ""
 
 				for flag of self.flags {
 					line := "  -${flag.name}, -${flag.short}"
 					line = line.pad_end(38, " ")
-					io.stdout.write_line(line + flag.description)
+
+					flags_info = "
+					| ${flags_info}
+					| ${line}${flag.description}
+					"
 				}
 
+				io.stdout.write_line("
+				|
+				| Usage: ${self.name} [command] [flags]
+				|
+				| ${self.description}
+				|
+				| Commands:
+				| ${commands_info}
+				|
+				| Flags:
+				| ${flags_info}
+				|
+				")
 			}
 		}
 	}
