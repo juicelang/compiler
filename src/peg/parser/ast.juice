@@ -1,0 +1,48 @@
+import .peg.lexer.location (location)
+import .util.option (option)
+
+export type program := {
+	statements: list(statement)
+	location: location
+}
+
+export type action := {
+	value: string
+	location: location
+}
+
+export type rule := {
+	name: string
+	patterns: list(pattern)
+	location: location
+}
+
+export type pattern := {
+	elements: list(pattern_element)
+	location: location
+}
+
+export type pattern_element := {
+	value: identifier | string | matcher
+	optional: bool
+	repeat_zero_or_more: bool
+	repeat_one_or_more: bool
+	binding: option(string)
+	action: option(string)
+	location: location
+}
+
+export type identifier := {
+	value: string
+	location: location
+}
+
+export type string := {
+	value: string
+	location: location
+}
+
+export type matcher := {
+	value: string
+	location: location
+}

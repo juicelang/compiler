@@ -1,0 +1,26 @@
+{
+	import .io
+
+	io.debug("Hello, World!")
+}
+
+int = [0-9]+
+float = int "." int
+
+number = float | int
+
+expr = expr1
+
+expr1 =
+	lhs:expr2 op:"+" rhs:expr2 { return { type = "expr", lhs = lhs, op = op, rhs = rhs } }
+	| lhs:expr2 op:"-" rhs:expr2 { return { type = "expr", lhs = lhs, op = op, rhs = rhs } }
+	| expr2
+
+expr2 =
+	lhs:expr3 op:"*" rhs:expr3 { return { type = "expr", lhs = lhs, op = op, rhs = rhs } }
+	| lhs:expr3 op:"/" rhs:expr3 { return { type = "expr", lhs = lhs, op = op, rhs = rhs } }
+	| expr3
+
+expr3 =
+	"(" expr ")"
+	| number

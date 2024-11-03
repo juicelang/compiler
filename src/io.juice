@@ -38,5 +38,8 @@ export fn debug(value: a) {
 
 export fn fatal(value: a) {
 	stderr.write_line(value)
-	process.exit(1)
+
+	js! {
+		process.exit(1)
+	}
 }

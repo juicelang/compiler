@@ -2,7 +2,9 @@ import .os
 import .cli (cli, command, flag)
 import .commands.build
 import .commands.run
-
+import .commands.lex
+import .commands.parse
+import .commands.parse_grammar
 
 fn main() {
 	app := cli(
@@ -28,6 +30,24 @@ fn main() {
 				description: "Build a Juice program",
 				flags: [ ],
 				action: build.command,
+			),
+			command(
+				name: "lex",
+				description: "Lex a Juice file",
+				flags: [ ],
+				action: lex.command,
+			),
+			command(
+				name: "parse",
+				description: "Parse a Juice file",
+				flags: [ ],
+				action: parse.command,
+			),
+			command(
+				name: "parse_grammar",
+				description: "Parse a Juice PEG file",
+				flags: [ ],
+				action: parse_grammar.command,
 			),
 		],
 	)

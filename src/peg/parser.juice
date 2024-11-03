@@ -1,0 +1,299 @@
+import .io
+import .peg.lexer.tokens
+import .peg.lexer.location (location)
+import .peg.parser.ast
+import .util.option (option)
+
+export type parser := {
+	tokens: list(token)
+	cursor: number
+}
+
+impl parser {
+	static fn new(tokens: list(token)) {
+		parser(tokens: tokens, cursor: 0)
+	}
+
+	fn peek() {
+		return self.tokens.${self.cursor}
+	}
+
+	fn peek_at(self, offset: number) {
+		return self.tokens.${self.cursor + offset}
+	}
+
+	fn peek_non_whitespace(self) {
+		cursor := self.cursor
+		for {
+			if cursor >= self.tokens.length {
+				break
+			}
+			t := self.tokens.${cursor}
+			if !juice_match(t, tokens.whitespace) {
+				return t
+			}
+			cursor = cursor + 1
+		}
+		return option::none()
+	}
+
+	fn peek_at_non_whitespace(self, offset: number) {
+		cursor := self.cursor + offset
+		for {
+			if cursor >= self.tokens.length {
+				break
+			}
+			t := self.tokens.${cursor}
+			if !juice_match(t, tokens.whitespace) {
+				return t
+			}
+			cursor = cursor + 1
+		}
+		return option::none()
+	}
+
+	fn eat() {
+		t := self.peek()
+		self.cursor = self.cursor + 1
+
+		return t
+	}
+
+	fn eat_while(self, predicate) -> list {
+		start := self.cursor
+
+		for {
+			if self.cursor < self.tokens.length && predicate() {
+				self.eat()
+			} else {
+				break
+			}
+		}
+
+		return self.tokens.slice(start, self.cursor)
+	}
+
+	fn expect(self, token: token) {
+		t := self.eat()
+
+		match t {
+			token -> {
+				t
+			}
+			_ -> {
+				js!(token) {
+					throw new Error(`Expected ${token} but got ${t}`)
+				}
+			}
+		}
+	}
+
+	fn parse(self) {
+		statements := []
+
+		start := self.tokens.${self.cursor}.location.start
+
+		end := self.tokens.${self.cursor}.location.end
+
+		for {
+			if self.cursor >= self.tokens.length {
+				break
+			}
+
+			node := self.parse_statement()
+
+			match node {
+				option::some(value) -> {
+					statements.push(value)
+
+					end = value.location.end
+				}
+				_ -> {}
+			}
+		}
+
+		program := ast.program(statements, location(start, end))
+
+		return program
+	}
+
+	fn skip_whitespace(self) {
+		for {
+			is_in_bounds := self.cursor < self.tokens.length
+			is_whitespace := match self.peek() {
+				tokens.whitespace -> { true }
+				_ -> { false }
+			}
+
+			if !is_in_bounds || !is_whitespace {
+				break
+			}
+
+			self.eat()
+		}
+	}
+
+	fn parse_statement(self) {
+		self.skip_whitespace()
+
+		t := self.peek()
+
+		match t {
+			tokens.action -> {
+				self.eat()
+
+				option::some(ast.action(t.value, t.location))
+			}
+			tokens.identifier -> {
+				option::some(self.parse_rule())
+			}
+			tokens.eof -> {
+				self.eat()
+
+				option::none()
+			}
+			_ -> {
+				io.debug("unexpected token ${t}")
+				self.eat()
+
+				option::none()
+			}
+		}
+	}
+
+	fn parse_rule(self) {
+		identifier := self.expect(tokens.identifier)
+
+		self.skip_whitespace()
+
+		eq := self.expect(tokens.equals)
+
+		self.skip_whitespace()
+
+		patterns := []
+
+		for {
+			if self.cursor >= self.tokens.length {
+				break
+			}
+
+			p := self.parse_pattern()
+
+			patterns.push(p)
+
+			self.skip_whitespace()
+
+			next := self.peek()
+
+			if juice_match(next, tokens.action) {
+				p.action = option.some(next.value)
+				p.location.end = next.location.end
+
+				self.eat()
+				self.skip_whitespace()
+
+				next = self.peek()
+			}
+
+			if juice_match(next, tokens.pipe) {
+				self.eat()
+				self.skip_whitespace()
+			} else {
+				break
+			}
+		}
+
+		ast.rule(identifier.value, patterns, location(identifier.location.start, patterns.at(-1).location.end))
+	}
+
+	fn parse_pattern(self) {
+		elements := []
+
+		for {
+			if self.cursor >= self.tokens.length {
+				io.debug("out of token bounds")
+				break
+			}
+
+			t := self.peek()
+			next := self.peek_at(1)
+			next_non_whitespace := self.peek_at_non_whitespace(1)
+
+			value := option::none()
+			binding := option::none()
+
+			if juice_match(t, tokens.identifier) && juice_match(next, tokens.colon) {
+				binding = self.parse_binding()
+				t = self.peek()
+				next = self.peek_at(1)
+				next_non_whitespace = self.peek_at_non_whitespace(1)
+			}
+
+			if juice_match(t, tokens.identifier) {
+				if juice_match(next_non_whitespace, tokens.equals) {
+					break
+				}
+
+				value = self.parse_identifier()
+			} else if juice_match(t, tokens.string) {
+				value = self.parse_string()
+			} else if juice_match(t, tokens.matcher) {
+				value = self.parse_matcher()
+			} else if juice_match(t, tokens.open_paren) {
+				value = self.parse_group()
+			} else {
+				break
+			}
+
+			optional := false
+			repeat_zero_or_more := false
+			repeat_one_or_more := false
+			action := option::none()
+			end := value.location.end
+
+			if juice_match(next, tokens.question) {
+				optional = true
+				end = next.location.end
+				self.eat()
+			} else if juice_match(next, tokens.star) {
+				repeat_zero_or_more = true
+				end = next.location.end
+				self.eat()
+			} else if juice_match(next, tokens.plus) {
+				repeat_one_or_more = true
+				end = next.location.end
+				self.eat()
+			}
+
+			element := ast.pattern_element(value, optional, repeat_zero_or_more, repeat_one_or_more, binding, action, location(value.location.start, end))
+
+			elements.push(element)
+			self.skip_whitespace()
+		}
+
+		ast.pattern(elements, location(elements.at(0).location.start, elements.at(-1).location.end))
+	}
+
+	fn parse_matcher(self) {
+		t := self.expect(tokens.matcher)
+
+		ast.matcher(t.value, t.location)
+	}
+
+	fn parse_identifier(self) {
+		t := self.expect(tokens.identifier)
+		ast.identifier(t.value, t.location)
+	}
+
+	fn parse_string(self) {
+		t := self.expect(tokens.string)
+		ast.string(t.value, t.location)
+	}
+
+	fn parse_binding(self) {
+		identifier := self.expect(tokens.identifier)
+		colon := self.expect(tokens.colon)
+
+		identifier.value
+	}
+}

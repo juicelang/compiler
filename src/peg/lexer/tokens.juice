@@ -1,0 +1,72 @@
+import .peg.lexer.location (location)
+
+export type eof := {
+	location: location
+}
+
+export type char := {
+	value: string
+	location: location
+}
+
+export type open_paren := {
+	location: location
+}
+
+export type close_paren := {
+	location: location
+}
+
+export type whitespace := {
+	value: string
+	location: location
+}
+
+export type string := {
+	value: string
+	location: location
+}
+
+export type identifier := {
+	value: string
+	location: location
+}
+
+export type operator := {
+	value: string
+	location: location
+}
+
+export type pipe := {
+	location: location
+}
+
+export type plus := {
+	location: location
+}
+
+export type star := {
+	location: location
+}
+
+export type question := {
+	location: location
+}
+
+export type colon := {
+	location: location
+}
+
+export type equals := {
+	location: location
+}
+
+export type matcher := {
+	value: string
+	location: location
+}
+
+export type action := {
+	value: string
+	location: location
+}

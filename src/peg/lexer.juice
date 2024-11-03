@@ -1,0 +1,249 @@
+import .io
+import .regex (regex)
+import .peg.lexer.tokens
+import .peg.lexer.location (location, point)
+
+export type lexer := {
+	input: string
+	cursor: number
+	line: number
+	column: number
+}
+
+whitespace_regex := regex.new("\\s+")
+number_regex := regex.new("\\\d+")
+punctuation_regex := regex.new("[\\(\\)\\[\\]\\{\\}\\:\\;\\,]")
+identifier_start_regex := regex.new("[a-zA-Z_]")
+identifier_regex := regex.new("[a-zA-Z0-9_]")
+
+impl lexer {
+	static fn new(input: string) -> lexer {
+		return lexer(
+			input: input,
+			cursor: 0,
+			line: 0,
+			column: 0,
+		)
+	}
+
+	fn point() -> location {
+		return point(
+			line: self.line,
+			column: self.column,
+		)
+	}
+
+	fn peek() -> char {
+		return self.input.${self.cursor}
+	}
+
+	fn peek_at(self, offset: number) -> char {
+		return self.input.${self.cursor + offset}
+	}
+
+	fn eat() -> char {
+		c := self.peek()
+		self.column = self.cursor + 1
+
+		if c == "\n" {
+			self.line = self.line + 1
+			self.column = 0
+		}
+
+		self.cursor = self.cursor + 1
+
+		return c
+	}
+
+	fn eat_while(self, predicate) -> string {
+		start := self.cursor
+
+		for {
+			if self.cursor < self.input.length && predicate() {
+				self.eat()
+			} else {
+				break
+			}
+		}
+
+		return self.input.slice(start, self.cursor)
+	}
+
+	fn lex(self) {
+		result := []
+
+		for  {
+			if self.cursor >= self.input.length {
+				break
+			}
+
+			c := self.peek()
+
+			if c == "\"" {
+				result.push(self.lex_string())
+			} else if c == "+" {
+				result.push(self.lex_plus())
+			} else if c == "*" {
+				result.push(self.lex_star())
+			} else if c == "?" {
+				result.push(self.lex_question())
+			} else if c == ":" {
+				result.push(self.lex_colon())
+			} else if c == "=" {
+				result.push(self.lex_equals())
+			} else if c == "|" {
+				result.push(self.lex_pipe())
+			} else if c == "[" {
+				result.push(self.lex_matcher())
+			} else if c == "{" {
+				result.push(self.lex_action())
+			} else if c == "(" {
+				start := self.point()
+
+				self.eat()
+
+				result.push(tokens.open_paren(location(start, self.point())))
+			} else if whitespace_regex.test(c) {
+				result.push(self.lex_whitespace())
+			} else if identifier_start_regex.test(c) {
+				result.push(self.lex_identifier())
+			} else {
+				stringified := js!(c) { return JSON.stringify(c) }
+
+				io.debug("Could not lex character: ${stringified} @ ${self.cursor}")
+				self.eat()
+			}
+		}
+
+		result.push(tokens.eof(location(self.point(), self.point())))
+
+		return result
+	}
+
+	fn lex_whitespace(self) -> token {
+		start := self.point()
+
+		value := self.eat_while(fn() {
+			whitespace_regex.test(self.peek())
+		})
+
+		tokens.whitespace(value, location(start, self.point()))
+	}
+
+	fn lex_identifier(self) -> token {
+		start := self.point()
+
+		initial := self.eat()
+
+		rest := self.eat_while(fn() {
+			identifier_regex.test(self.peek())
+		})
+
+		tokens.identifier(initial + rest, location(start, self.point()))
+	}
+
+	fn lex_string(self) -> token {
+		start := self.point()
+
+		self.eat() // "
+
+		value := self.eat_while(fn() {
+			is_quote := self.peek() == "\""
+			is_after_escape := self.peek_at(-1) == "\\"
+
+			!is_quote || is_after_escape
+		})
+
+		self.eat() // "
+
+		tokens.string(value, location(start, self.point()))
+	}
+
+	fn lex_operator(self) -> token {
+		start := self.point()
+		value := self.eat_while(fn() {
+			operator_regex.test(self.peek())
+		})
+
+		tokens.operator(value, location(start, self.point()))
+	}
+
+	fn lex_matcher(self) -> token {
+		start := self.point()
+
+		self.eat() // [
+
+		value := self.eat_while(fn() {
+			is_close := self.peek() == "]"
+			is_after_escape := self.peek_at(-1) == "\\"
+
+			!is_close || is_after_escape
+		})
+
+		self.eat() // ]
+
+		tokens.matcher(value, location(start, self.point()))
+	}
+
+	fn lex_action(self) -> token {
+		start := self.point()
+
+		self.eat() // {
+
+		depth := 1
+
+		value := self.eat_while(fn() {
+			is_open := self.peek() == "{"
+			is_close := self.peek() == "}"
+			is_after_escape := self.peek_at(-1) == "\\"
+
+			if is_open {
+				depth = depth + 1
+			} else if is_close {
+				depth = depth - 1
+			}
+
+			!is_close || is_after_escape || depth > 0
+		})
+
+		self.eat() // }
+
+		tokens.action(value, location(start, self.point()))
+	}
+
+	fn lex_plus(self) -> token {
+		start := self.point()
+		self.eat()
+		tokens.plus(location(start, self.point()))
+	}
+
+	fn lex_star(self) -> token {
+		start := self.point()
+		self.eat()
+		tokens.star(location(start, self.point()))
+	}
+
+	fn lex_question(self) -> token {
+		start := self.point()
+		self.eat()
+		tokens.question(location(start, self.point()))
+	}
+
+	fn lex_colon(self) -> token {
+		start := self.point()
+		self.eat()
+		tokens.colon(location(start, self.point()))
+	}
+
+	fn lex_equals(self) -> token {
+		start := self.point()
+		self.eat()
+		tokens.equals(location(start, self.point()))
+	}
+
+	fn lex_pipe(self) -> token {
+		start := self.point()
+		self.eat()
+		tokens.pipe(location(start, self.point()))
+	}
+}

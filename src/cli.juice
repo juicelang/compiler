@@ -106,6 +106,12 @@ impl cli {
 			}
 		}
 
+		if positionals.length > 0 {
+			io.stderr.write_line("Unknown command: ${positionals.${0}}\n")
+		} else {
+			io.stderr.write_line("No command provided\n")
+		}
+
 		self.show_help(option::none())
 	}
 

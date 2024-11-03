@@ -1,0 +1,18 @@
+export fn resolve(parts: list(string)) {
+	js!(parts) {
+		return require("node:path").resolve(...parts);
+	}
+}
+
+export fn resolve_absolute(parts: list(string), base: string) {
+	js!(parts, base) {
+		const path = require("node:path");
+		const resolved = path.resolve(...parts);
+
+		if (path.isAbsolute(resolved)) {
+			return resolved;
+		} else {
+			return path.resolve(base, resolved);
+		}
+	}
+}

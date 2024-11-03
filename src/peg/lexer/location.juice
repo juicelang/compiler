@@ -1,0 +1,9 @@
+export type point := {
+	line: number
+	column: number
+}
+
+export type location := {
+	start: point
+	end: point
+}

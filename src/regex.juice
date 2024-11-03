@@ -1,0 +1,23 @@
+import .io
+
+export type regex := {
+	instance: regular_expression
+}
+
+impl regex {
+	static fn new(pattern: string, flags: string) -> regex {
+		instance := js!(pattern, flags) {
+			return new RegExp(pattern, flags)
+		}
+
+		return regex(instance)
+	}
+
+	fn test(self, input: string) {
+		return self.instance.test(input)
+	}
+
+	fn exec(self, input: string) {
+		return self.instance.exec(input)
+	}
+}

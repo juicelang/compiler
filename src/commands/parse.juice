@@ -1,0 +1,17 @@
+import .io
+import .fs
+import .peg.lexer (lexer)
+
+export fn command(args) {
+	if args.positionals.length == 0 {
+		io.fatal("No file path provided.")
+	}
+
+	file_path := args.positionals.at(0)
+
+	text := fs.read_file(file_path)
+
+	l := lexer.new(text)
+
+	tokens := l.lex()
+}
